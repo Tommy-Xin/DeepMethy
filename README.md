@@ -1,7 +1,7 @@
 
-DeepMeths
+DeepMethy
 =========
-DeepMeths: prediction of protein methylation sites with deep learning
+DeepMethy: Prediction of Protein Methylation Sites with Deep Learning
 Developer: XinCheng  from  Data Science and Big Data Technology, College of Software, Jilin University 
 
 Requirement
@@ -12,17 +12,16 @@ Requirement
 
 Related data information need to first load
 =========
-it is stored in the "./dataset/test_file.csv" 
+The related data is stored in '/dataset/test_file.csv'.
 
 The input file is an csv file, which includes , postion, sequences and labels
 
 Predict for your test data
 =========
-If you want to use the model to predict your test data, you must prepared the test data as an csv file, the first col: postion, the second col: sequences 
+To use the model for prediction on your test data, prepare a CSV file with two columns: position and sequence. 
 
-The you can run the predict.py 
+You can then run predict.py to generate predictions. The output will be a text file with results in the format:
 
-The results is an txt file,like:
 "21"	"0.9999963"
 "21"	"0.95067513"
 "21"	"1.0669616e-24"
@@ -32,8 +31,7 @@ The results is an txt file,like:
 "21"	"1.8712221e-07"
 "21"	"1.2668259e-24"
 
-You can change the corresponding parameters in  main function prdict.py to choose to use the model to predict for general 
-prediction
+You can modify parameters in the predict.py main function to customize the prediction process according to your needs.
 
 Train with your own data
 =====
@@ -41,10 +39,10 @@ If you want to train your own network,your input file is an csv fie, while conta
 label,  postion, sequence
 label is 1 or 0 represents methylation and non-methylation site
 
-Structure
+Project Structure
 ==============
 
-The methods folder contains dataprocess_predict.py, dataprocess_train.py, model_n.py, 
+The methods folder contains train_BP(length-concat).py, predict_BP(length-concat).py
 
 
 
