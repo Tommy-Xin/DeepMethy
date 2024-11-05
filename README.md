@@ -37,15 +37,17 @@ Train with your own data
 =====
 If you want to train your own network,your input file is an csv fie, while contains 3 columns:
 label,  postion, sequence
-label is 1 or 0 represents methylation and non-methylation site
+label is 1 or 0 represents methylation and non-methylation site。
+If you are interested in adding more function to the code, welcome to show your talent!
 
 Project Structure
 ==============
 
-The methods folder contains train_BP(length-concat).py, predict_BP(length-concat).py
+The methods folder contains train_BP(length-concat).py, predict_BP(length-concat).py.
+The detailed model structure is shown in the train_BP(length-concat).py
 
 
 
 Contact
 =========
-Please feel free to contact us if you need any help: 2270315952@qq.com
+Please feel free to contact us if you need any help: xinhku168@gmail.com
