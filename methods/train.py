@@ -309,8 +309,7 @@ def BLOSUM_Encode(train_file,window_size):
     sites = 'S'
 
     empty_aa = '-'  
-    import csv
-    file_path = 'D:\Code_Implentation\DeepMethy\\blosum.csv'
+    file_path = '.\DeepMethy\\blosum.csv'
     df = pd.read_csv(file_path, index_col=0)
     with open(train_file, 'r', encoding='utf-8', errors='ignore') as rf:
         reader = csv.reader(rf)
@@ -698,12 +697,12 @@ def model_net(win1,win2,win3,sites,
     ##########parameters#########
 
 
-    file_path = 'D:\Code_Implentation\DeepMethy\\blosum.csv'
-    train_file = 'D:\Code_Implentation\\DeepMethy\\dataset\\Y_train.csv'
+    file_path = '.\DeepMethy\\blosum.csv'
+    train_file = '.\DeepMethy\\dataset\\Y_train.csv'
     X_BLtrain1, y_train = BLOSUM_Encode(train_file, win1)
     X_BLtrain2, _ = BLOSUM_Encode(train_file, win2)
     X_BLtrain3, _ = BLOSUM_Encode(train_file, win3)
-    folder_path = 'D:/Code_Implentation/DeepMethy/phos/Y-train'
+    folder_path = './DeepMethy/'''  # input the path to your training dataset
     X_PSSMtrain1 = (process_all_pssm_files(folder_path, window_size=win1)).numpy()
     X_PSSMtrain2 = (process_all_pssm_files(folder_path, window_size=win2)).numpy()
     X_PSSMtrain3 = (process_all_pssm_files(folder_path, window_size=win3)).numpy()
@@ -752,15 +751,8 @@ def model_net(win1,win2,win3,sites,
     ###################
     # Construct model #
     ###################
-    # from methods.Methy import Methys
-
-
-
-
     opt = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
-
     l2_lambda=0.01
-
     regularization_loss = 0.0
     for weight in model.trainable_weights:
         regularization_loss += tf.nn.l2_loss(weight)
@@ -785,11 +777,10 @@ def model_net(win1,win2,win3,sites,
           model.fit([X_BLtrain1,X_BLtrain2,X_BLtrain3,X_PSSMtrain1,X_PSSMtrain2,X_PSSMtrain3], y_train, batch_size=nb_batch_size,
                               epochs=nb_epoch, shuffle=True, verbose=2)
           modelname="model_{:s}_Code({})".format(sites,coding)+'.weights.h5'
-          model.save_weights(filepath="D:/Code_Implentation/DeepMethy/models/{}".format(modelname),overwrite=True)  #xin
+          model.save_weights(filepath="./DeepMethy/models/{}".format(modelname),overwrite=True)  #xin
 
 
     return model
 
-# 文件路径
 if __name__ == '__main__':
-    model=model_net(win1=33,win2=20,win3=9,sites='Y',nb_epoch=50,coding='BLOSUM_PSSM_Y')
+    model=model_net(win1=41,win2=25,win3=11,sites='R',nb_epoch=50,coding='BLOSUM_PSSM_Y')
