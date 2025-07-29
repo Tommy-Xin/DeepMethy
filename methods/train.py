@@ -302,6 +302,96 @@ def process_all_pssm_files(folder_path,window_size):
     all_tensors_matrix = tf.stack(all_tensors)
 
     return all_tensors_matrix
+
+def load_blosum62_matrix(file_path):
+    """从 CSV 文件加载 BLOSUM62 矩阵"""
+    df = pd.read_csv(file_path, index_col=0)
+    blosum62 = df.to_dict()  # 将数据框转换为字典
+    amino_acids = df.columns.tolist()  # 提取氨基酸列表
+    return blosum62, amino_acids
+
+def get_blosum62_row(aa, df,valid_amino_acids):
+    """获取给定氨基酸的 BLOSUM62 矩阵行向量"""
+    if aa not in df.index:
+        return [0] * len(df.columns)
+    row = df.loc[aa]
+        # 保留有效氨基酸的得分，其它设置为0
+    return [row.get(other, 0) if other in valid_amino_acids else 0 for other in df.columns]
+
+def encode_sequence(sequence, df):
+    """将蛋白质序列编码为 BLOSUM62 矩阵的特征向量"""
+    valid_amino_acids = set(sequence)
+    encoding = []
+    for aa in sequence:
+        if aa =='X':
+            aa = 'O'
+        if aa in df.index:
+            row = get_blosum62_row(aa, df,valid_amino_acids)
+            encoding.append(row)
+        else:
+            raise ValueError(f"Unknown amino acid: {aa}")
+    return np.array(encoding)
+
+def BLOSUM_Encode(train_file,window_size):
+    pos = []  # list of position with protein name
+    rawseq = []
+    all_label = []
+    short_seqs = []
+    half_len = int((window_size - 1) / 2)
+    sites = 'S'
+
+    empty_aa = '-'  # 空白氨基酸，用于填充序列不足的情况
+    import csv
+    file_path = 'D:\Code_Implentation\DeepMethy\\blosum.csv'
+    df = pd.read_csv(file_path, index_col=0)
+    with open(train_file, 'r', encoding='utf-8', errors='ignore') as rf:
+        reader = csv.reader(rf)
+        for row in reader:
+            position = int(row[1])
+            sseq = row[2]
+            rawseq.append(row[2])
+            center = sseq[position - 1]
+            if (center in sites) or (center in 'T') or (center in 'Y'):
+                all_label.append(int(row[0]))
+                pos.append(row[1])
+
+                # 提取窗口内的氨基酸序列
+                if position - half_len > 0:
+                    start = int(position - half_len)
+                    left_seq = sseq[start - 1:position - 1]
+                else:
+                    left_seq = sseq[0:position - 1]
+
+                end = len(sseq)
+                if position + half_len < end:
+                    end = int(position + half_len)
+                right_seq = sseq[position:end]
+
+                # 处理序列不足窗口大小的情况
+                if len(left_seq) < half_len:
+                    nb_lack = half_len - len(left_seq)
+                    left_seq = ''.join([empty_aa for count in range(nb_lack)]) + left_seq
+
+                if len(right_seq) < half_len:
+                    nb_lack = half_len - len(right_seq)
+                    right_seq = right_seq + ''.join([empty_aa for count in range(nb_lack)])
+
+                # 将窗口序列编码为BLOSUM
+                shortseq = left_seq + center + right_seq
+                encoded_seq = []
+                encoded_seq.append(encode_sequence(shortseq, df))
+            short_seqs.append(encoded_seq)
+
+
+    # 转换标签为one-hot编码
+    targetY = to_categorical(all_label)
+    import numpy as np
+    # 将编码后的序列转换为numpy数组
+    Matr = np.array(short_seqs)
+    Matr = K.squeeze(Matr, axis=1)
+    Matr = np.array(Matr)
+    return Matr,targetY
+
 def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdim1, img_PSSMdim2, img_PSSMdim3,
            init_form, nb_dense_block,
            growth_rate, filter_size_block1, filter_size_block2, filter_size_block3,
@@ -695,398 +785,6 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                         name="multi-DenseNet")
 
     return methy_model
-# def Methys(nb_classes, nb_layers,img_BLdim1,img_BLdim2,img_BLdim3,img_PSSMdim1,img_PSSMdim2,img_PSSMdim3, init_form, nb_dense_block,
-#              growth_rate,filter_size_block1,filter_size_block2,filter_size_block3,
-#              nb_filter, filter_size_ori,
-#              dense_number,dropout_rate,dropout_dense,weight_decay):
-#     """ Build the DenseNet model
-#
-#     :param nb_classes: int -- number of classes
-#     :param img_dim: tuple -- (channels, rows, columns)
-#     :param depth: int -- how many layers
-#     :param nb_dense_block: int -- number of dense blocks to add to end
-#     :param growth_rate: int -- number of filters to add
-#     :param nb_filter: int -- number of filters
-#     :param dropout_rate: float -- dropout rate
-#     :param weight_decay: float -- weight decay
-#     :param nb_layers:int --numbers of layers in a dense block
-#     :param filter_size_ori: int -- filter size of first conv1d
-#     :param dropout_dense: float---drop out rate of dense
-#
-#     :returns: keras model with nb_layers of conv_factory appended
-#     :rtype: keras model
-#
-#     """
-#     # first input of 33 seq #
-#     main_input = Input(shape=img_BLdim1)
-#     main_input_transpose = Permute((2,1))(main_input)
-#     #model_input = Input(shape=img_dim)
-#     # Initial convolution
-#     x1 = Conv1D(nb_filter, filter_size_ori,
-#                       kernel_initializer=init_form,
-#                       activation='relu',
-#                       padding='same',
-#                       use_bias=False,
-#                       #W_regularizer=l2(weight_decay))(main_input)
-#                       kernel_regularizer=L2(weight_decay))(main_input)
-#     x1_transpose = Conv1D(nb_filter, filter_size_ori,
-#                       kernel_initializer=init_form,
-#                       activation='relu',
-#                       padding='same',
-#                       use_bias=False,
-#                       #W_regularizer=l2(weight_decay))(main_input)
-#                       kernel_regularizer=L2(weight_decay))(main_input_transpose)
-#     # x1 = transformer_block(main_input, nb_filter)
-#     # x1_transpose = transformer_block(main_input_transpose,nb_filter)
-#     # x1 = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1)
-#     # x1_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1_transpose)
-#     # Add dense blocks
-#     for block_idx in range(nb_dense_block - 1):
-#         x1 = denseblock(x1, init_form, nb_layers, nb_filter, growth_rate,filter_size_block1,
-#                                   dropout_rate=dropout_rate,
-#                                   weight_decay=weight_decay)
-#         x1_transpose = denseblock(x1_transpose, init_form, nb_layers, nb_filter, growth_rate,filter_size_block1,
-#                                   dropout_rate=dropout_rate,
-#                                   weight_decay=weight_decay)
-#         # add transition
-#         x1 = transition(x1, init_form, nb_filter, dropout_rate=dropout_rate,
-#                        weight_decay=weight_decay)
-#         x1_transpose = transition(x1_transpose, init_form, nb_filter, dropout_rate=dropout_rate,
-#                        weight_decay=weight_decay)
-#
-#     # The last denseblock does not have a transition
-#     x1 = denseblock(x1, init_form, nb_layers, nb_filter, growth_rate,filter_size_block1,
-#                               dropout_rate=dropout_rate,
-#                               weight_decay=weight_decay)
-#     x1_transpose = denseblock(x1_transpose, init_form, nb_layers, nb_filter, growth_rate, filter_size_block1,
-#                               dropout_rate=dropout_rate,
-#                               weight_decay=weight_decay)
-#
-#     x1 = residual_block(x1, init_form, nb_filter, filter_size_block1, weight_decay)
-#     x1_transpose = residual_block(x1_transpose, init_form, nb_filter, filter_size_block1, weight_decay)
-#
-#
-#     # x1 = PReLU()(x1)
-#     # x1_transpose = PReLU()(x1_transpose)
-#     x1 = Activation('relu')(x1)
-#     x1_transpose = Activation('relu')(x1_transpose)
-#
-#     # x1 = two_head_attention_fusion(x1,x1_transpose,2)
-#
-#
-#     # second input of 21 seq #
-#     input2 = Input(shape=img_BLdim2)
-#     input2_transpose = Permute((2,1))(input2)
-#     x2 = Conv1D(nb_filter, filter_size_ori,
-#                 kernel_initializer=init_form,
-#                 activation='relu',
-#                 padding='same',
-#                 use_bias=False,
-#                 kernel_regularizer=L2(weight_decay))(input2)
-#     x2_transpose = Conv1D(nb_filter, filter_size_ori,
-#                 kernel_initializer=init_form,
-#                 activation='relu',
-#                 padding='same',
-#                 use_bias=False,
-#                 kernel_regularizer=L2(weight_decay))(input2_transpose)
-#     # x2 = transformer_block(input2, nb_filter)
-#     # x2_transpose = transformer_block(input2_transpose,nb_filter)
-#     # x2 = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2)
-#     # x2_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2_transpose)
-#     # Add dense blocks
-#     for block_idx in range(nb_dense_block - 1):
-#         x2 = denseblock(x2, init_form, nb_layers, nb_filter, growth_rate, filter_size_block2,
-#                         dropout_rate=dropout_rate,
-#                         weight_decay=weight_decay)
-#         x2_transpose = denseblock(x2_transpose, init_form, nb_layers, nb_filter, growth_rate,filter_size_block2,
-#                                   dropout_rate=dropout_rate,
-#                                   weight_decay=weight_decay)
-#         # add transition
-#         x2 = transition(x2, init_form, nb_filter, dropout_rate=dropout_rate,
-#                         weight_decay=weight_decay)
-#         x2_transpose = transition(x2_transpose, init_form, nb_filter, dropout_rate=dropout_rate,
-#                        weight_decay=weight_decay)
-#
-#     # The last denseblock does not have a transition
-#     x2 = denseblock(x2, init_form, nb_layers, nb_filter, growth_rate, filter_size_block2,
-#                     dropout_rate=dropout_rate,
-#                     weight_decay=weight_decay)
-#     x2_transpose = denseblock(x2_transpose, init_form, nb_layers, nb_filter, growth_rate, filter_size_block2,
-#                               dropout_rate=dropout_rate,
-#                               weight_decay=weight_decay)
-#
-#     x2 = residual_block(x2, init_form, nb_filter, filter_size_block2, weight_decay)
-#     x2_transpose = residual_block(x2_transpose, init_form, nb_filter, filter_size_block2, weight_decay)
-#
-#     x2 = Activation('relu')(x2)
-#     x2_transpose = Activation('relu')(x2_transpose)
-#     # x2 = PReLU()(x2)
-#     # x2_transpose = PReLU()(x2_transpose)
-#
-#     # x2 = two_head_attention_fusion(x2,x2_transpose,2)
-#
-#     #third input seq of 15 #
-#     input3 = Input(shape=img_BLdim3)
-#     input3_transpose = Permute((2,1))(input3)
-#     x3 = Conv1D(nb_filter, filter_size_ori,
-#                 kernel_initializer=init_form,
-#                 activation='relu',
-#                 padding='same',
-#                 use_bias=False,
-#                 kernel_regularizer=L2(weight_decay))(input3)
-#     x3_transpose = Conv1D(nb_filter, filter_size_ori,
-#                 kernel_initializer=init_form,
-#                 activation='relu',
-#                 padding='same',
-#                 use_bias=False,
-#                 kernel_regularizer=L2(weight_decay))(input3_transpose)
-#     # x3 = transformer_block(input3, nb_filter)
-#     # x3_transpose = transformer_block(input3_transpose,nb_filter)
-#     # x3 = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3)
-#     # x3_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3_transpose)
-#     # Add dense blocks
-#     for block_idx in range(nb_dense_block - 1):
-#         x3 = denseblock(x3, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
-#                         dropout_rate=dropout_rate,
-#                         weight_decay=weight_decay)
-#         x3_transpose = denseblock(x3_transpose, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
-#                                   dropout_rate=dropout_rate,
-#                                   weight_decay=weight_decay)
-#         # add transition
-#         x3 = transition(x3, init_form, nb_filter, dropout_rate=dropout_rate,
-#                         weight_decay=weight_decay)
-#         x3_transpose = transition(x3_transpose, init_form, nb_filter, dropout_rate=dropout_rate,
-#                        weight_decay=weight_decay)
-#
-#     # The last denseblock does not have a transition
-#     x3 = denseblock(x3, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
-#                     dropout_rate=dropout_rate,
-#                     weight_decay=weight_decay)
-#     x3_transpose = denseblock(x3_transpose, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
-#                               dropout_rate=dropout_rate,
-#                               weight_decay=weight_decay)
-#     x3 = residual_block(x3, init_form, nb_filter, filter_size_block3, weight_decay)
-#     x3_transpose = residual_block(x3_transpose, init_form, nb_filter, filter_size_block3,weight_decay)
-#
-#     x3 = Activation('relu')(x3)
-#     x3_transpose = Activation('relu')(x3_transpose)
-#     # x3 = PReLU()(x3)
-#     # x3_transpose = PReLU()(x3_transpose)
-#     # x3 = two_head_attention_fusion(x3, x3_transpose,2)
-#
-#     # x=concatenate([x1,x2,x3],axis=1)
-# #需要改进!!!
-#
-#     # x = Flatten()(attention)  有问题
-#     # x = attention_block(x)
-#     x = concatenate([x1,x2,x3],axis=1)
-#     x_transpose = concatenate([x1_transpose,x2_transpose,x3_transpose],axis=2)
-#     # x = multi_head_attention_fusion(x1, x2, x3, num_heads=6, Daxis=1)
-#     # x_transpose = multi_head_attention_fusion(x1_transpose,x2_transpose,x3_transpose, num_heads=6, Daxis=2) #
-#
-#     main_PSSMinput = Input(shape=img_PSSMdim1)
-#     main_PSSMinput_transpose = Permute((2, 1))(main_PSSMinput)
-#     # model_input = Input(shape=img_dim)
-#     # Initial convolution
-#     x1PSSM = Conv1D(nb_filter, filter_size_ori,
-#                 kernel_initializer=init_form,
-#                 activation='relu',
-#                 padding='same',
-#                 use_bias=False,
-#                 # W_regularizer=l2(weight_decay))(main_input)
-#                 kernel_regularizer=L2(weight_decay))(main_PSSMinput)
-#     x1PSSM_transpose = Conv1D(nb_filter, filter_size_ori,
-#                           kernel_initializer=init_form,
-#                           activation='relu',
-#                           padding='same',
-#                           use_bias=False,
-#                           # W_regularizer=l2(weight_decay))(main_input)
-#                           kernel_regularizer=L2(weight_decay))(main_PSSMinput_transpose)
-#     # x1PSSM = transformer_block(main_PSSMinput, nb_filter)
-#     # x1PSSM_transpose = transformer_block(main_PSSMinput_transpose,nb_filter)
-#     # x1PSSM = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1PSSM)
-#     # x1PSSM_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1PSSM_transpose)
-#     # Add dense blocks
-#     for block_idx in range(nb_dense_block - 1):
-#         x1PSSM = denseblock(x1PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block1,
-#                         dropout_rate=dropout_rate,
-#                         weight_decay=weight_decay)
-#         x1PSSM_transpose = denseblock(x1PSSM_transpose, init_form, nb_layers, nb_filter, growth_rate, filter_size_block1,
-#                                   dropout_rate=dropout_rate,
-#                                   weight_decay=weight_decay)
-#         # add transition
-#         x1PSSM = transition(x1PSSM, init_form, nb_filter, dropout_rate=dropout_rate,
-#                         weight_decay=weight_decay)
-#         x1PSSM_transpose = transition(x1PSSM_transpose, init_form, nb_filter, dropout_rate=dropout_rate,
-#                                   weight_decay=weight_decay)
-#
-#     # The last denseblock does not have a transition
-#     x1PSSM = denseblock(x1PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block1,
-#                     dropout_rate=dropout_rate,
-#                     weight_decay=weight_decay)
-#     x1PSSM_transpose = denseblock(x1PSSM_transpose, init_form, nb_layers, nb_filter, growth_rate, filter_size_block1,
-#                               dropout_rate=dropout_rate,
-#                               weight_decay=weight_decay)
-#
-#     x1PSSM = residual_block(x1PSSM, init_form, nb_filter, filter_size_block1, weight_decay)
-#     x1PSSM_transpose = residual_block(x1PSSM_transpose, init_form, nb_filter, filter_size_block1, weight_decay)
-#
-#     # x1PSSM = PReLU()(x1PSSM)
-#     # x1PSSM_transpose = PReLU()(x1PSSM_transpose)
-#     x1PSSM = Activation('relu')(x1PSSM)
-#     x1PSSM_transpose = Activation('relu')(x1PSSM_transpose)
-#
-#     # x1 = two_head_attention_fusion(x1,x1_transpose,2)
-#
-#     # second input of 21 seq #
-#     inputPSSM2 = Input(shape=img_PSSMdim2)
-#     inputPSSM2_transpose = Permute((2, 1))(inputPSSM2)
-#     x2PSSM = Conv1D(nb_filter, filter_size_ori,
-#                 kernel_initializer=init_form,
-#                 activation='relu',
-#                 padding='same',
-#                 use_bias=False,
-#                 kernel_regularizer=L2(weight_decay))(inputPSSM2)
-#     x2PSSM_transpose = Conv1D(nb_filter, filter_size_ori,
-#                           kernel_initializer=init_form,
-#                           activation='relu',
-#                           padding='same',
-#                           use_bias=False,
-#                           kernel_regularizer=L2(weight_decay))(inputPSSM2_transpose)
-#     # x2PSSM = transformer_block(inputPSSM2, nb_filter)
-#     # x2PSSM_transpose = transformer_block(inputPSSM2_transpose,nb_filter)
-#     # x2PSSM = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2PSSM)
-#     # x2PSSM_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2PSSM_transpose)
-#     # Add dense blocks
-#     for block_idx in range(nb_dense_block - 1):
-#         x2PSSM = denseblock(x2PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block2,
-#                         dropout_rate=dropout_rate,
-#                         weight_decay=weight_decay)
-#         x2PSSM_transpose = denseblock(x2PSSM_transpose, init_form, nb_layers, nb_filter, growth_rate, filter_size_block2,
-#                                   dropout_rate=dropout_rate,
-#                                   weight_decay=weight_decay)
-#         # add transition
-#         x2PSSM = transition(x2PSSM, init_form, nb_filter, dropout_rate=dropout_rate,
-#                         weight_decay=weight_decay)
-#         x2PSSM_transpose = transition(x2PSSM_transpose, init_form, nb_filter, dropout_rate=dropout_rate,
-#                                   weight_decay=weight_decay)
-#
-#     # The last denseblock does not have a transition
-#     x2PSSM = denseblock(x2PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block2,
-#                     dropout_rate=dropout_rate,
-#                     weight_decay=weight_decay)
-#     x2PSSM_transpose = denseblock(x2PSSM_transpose, init_form, nb_layers, nb_filter, growth_rate, filter_size_block2,
-#                               dropout_rate=dropout_rate,
-#                               weight_decay=weight_decay)
-#
-#     x2PSSM = residual_block(x2PSSM, init_form, nb_filter, filter_size_block2, weight_decay)
-#     x2PSSM_transpose = residual_block(x2PSSM_transpose, init_form, nb_filter, filter_size_block2, weight_decay)
-#
-#     # x2PSSM = PReLU()(x2PSSM)
-#     # x2PSSM_transpose = PReLU()(x2PSSM_transpose)
-#     x2PSSM = Activation('relu')(x2PSSM)
-#     x2PSSM_transpose = Activation('relu')(x2PSSM_transpose)
-#
-#     # x2 = two_head_attention_fusion(x2,x2_transpose,2)
-#
-#     # third input seq of 15 #
-#     inputPSSM3 = Input(shape=img_PSSMdim3)
-#     inputPSSM3_transpose = Permute((2, 1))(inputPSSM3)
-#     x3PSSM = Conv1D(nb_filter, filter_size_ori,
-#                 kernel_initializer=init_form,
-#                 activation='relu',
-#                 padding='same',
-#                 use_bias=False,
-#                 kernel_regularizer=L2(weight_decay))(inputPSSM3)
-#     x3PSSM_transpose = Conv1D(nb_filter, filter_size_ori,
-#                           kernel_initializer=init_form,
-#                           activation='relu',
-#                           padding='same',
-#                           use_bias=False,
-#                           kernel_regularizer=L2(weight_decay))(inputPSSM3_transpose)
-#     # x3PSSM = transformer_block(inputPSSM3, nb_filter)
-#     # x3PSSM_transpose = transformer_block(inputPSSM3_transpose,nb_filter)
-#     # x3PSSM = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3PSSM)
-#     # x3PSSM_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3PSSM_transpose)
-#     # Add dense blocks
-#     for block_idx in range(nb_dense_block - 1):
-#         x3PSSM = denseblock(x3PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
-#                         dropout_rate=dropout_rate,
-#                         weight_decay=weight_decay)
-#         x3PSSM_transpose = denseblock(x3PSSM_transpose, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
-#                                   dropout_rate=dropout_rate,
-#                                   weight_decay=weight_decay)
-#         # add transition
-#         x3PSSM = transition(x3PSSM, init_form, nb_filter, dropout_rate=dropout_rate,
-#                         weight_decay=weight_decay)
-#         x3PSSM_transpose = transition(x3PSSM_transpose, init_form, nb_filter, dropout_rate=dropout_rate,
-#                                   weight_decay=weight_decay)
-#
-#     # The last denseblock does not have a transition
-#     x3PSSM = denseblock(x3PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
-#                     dropout_rate=dropout_rate,
-#                     weight_decay=weight_decay)
-#     x3PSSM_transpose = denseblock(x3PSSM_transpose, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
-#                               dropout_rate=dropout_rate,
-#                               weight_decay=weight_decay)
-#     x3PSSM = residual_block(x3PSSM, init_form, nb_filter, filter_size_block3, weight_decay)
-#     x3PSSM_transpose = residual_block(x3PSSM_transpose, init_form, nb_filter, filter_size_block3, weight_decay)
-#
-#     x3PSSM = Activation('relu')(x3PSSM)
-#     x3PSSM_transpose = Activation('relu')(x3PSSM_transpose)
-#     # x3PSSM = PReLU()(x3PSSM)
-#     # x3PSSM_transpose = PReLU()(x3PSSM_transpose)
-#
-#     # x3 = two_head_attention_fusion(x3, x3_transpose,2)
-#
-#     # x=concatenate([x1,x2,x3],axis=1)
-#     # 需要改进!!!
-#
-#     # x = Flatten()(attention)  有问题
-#     # x = attention_block(x)
-#     xPSSM = concatenate([x1PSSM,x2PSSM,x3PSSM],axis=1)
-#     xPSSM_transpose = concatenate([x1PSSM_transpose,x2PSSM_transpose,x3PSSM_transpose],axis=2)
-#     # xPSSM = multi_head_attention_fusion(x1PSSM, x2PSSM, x3PSSM, num_heads=6, Daxis=1)
-#     # xPSSM_transpose = multi_head_attention_fusion(x1PSSM_transpose, x2PSSM_transpose, x3PSSM_transpose, num_heads=6, Daxis=2)
-#     x = concatenate([x,xPSSM],axis=-1)
-#     x_t = concatenate([x_transpose,xPSSM_transpose],axis=1)
-#     # x = two_head_attention_fusion(x,xPSSM,2,axis=-1)
-#     # x_t = two_head_attention_fusion(x_transpose, xPSSM_transpose, 2, axis=1)
-#
-#     #
-#     # x = two_head_attention_fusion(x,x_transpose,4,axis=1)
-#     # x = concatenate([x,xPSSM],axis=-1)
-#     # x_t = two_head_attention_fusion(x_transpose,xPSSM_transpose,2,axis=1)
-#     # x_t = concatenate([x_transpose,xPSSM_transpose],axis=1)
-#     x_t_last = x_t.shape[-1]
-#     x_last_shape = x.shape[-1]
-#     x_t = Conv1D(filters=x_last_shape,kernel_size=1)(x_t) #可改进
-#     # x = Conv1D(filters=x_t_last,kernel_size=1)(x)
-#     # x = concatenate([x,x_t],axis=1)
-#     x = concatenate([x,x_t],axis=1)
-#     # x = two_head_attention_fusion(x,x_t,num_heads=6,axis=1)
-#
-#
-#     x = Flatten()(x)
-#
-#     x = Dense(dense_number,
-#               name ='Dense_1',
-#               activation='relu',
-#               kernel_initializer = init_form,
-#               kernel_regularizer=L2(weight_decay),
-#               bias_regularizer=L2(weight_decay))(x)         #unsure a probleming point
-#
-#     x = Dropout(dropout_dense)(x)
-#     #softmax
-#
-#
-#     output1 = Dense(nb_classes, activation='softmax', kernel_initializer=init_form,
-#                    kernel_regularizer=L2(weight_decay),
-#                    bias_regularizer=L2(weight_decay))(x)
-#
-#     methy_model = Model(inputs=[main_input,input2,input3,main_PSSMinput,inputPSSM2,inputPSSM3], outputs=[output1], name="multi-DenseNet")
-#
-#     return methy_model
 
 
 def model_net(win1,win2,win3,sites,
@@ -1179,12 +877,7 @@ def model_net(win1,win2,win3,sites,
     model.compile(loss=binary_crossentropy,
                     optimizer=opt,
                     metrics=['accuracy'])
-    # y_train_squeezed = (np.argmax(y_train,axis=1)).astype(int)
-    #
-    # # 计算类别权重
-    # class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train_squeezed),
-    #                                      y=y_train_squeezed)
-    # class_weights = dict(enumerate(class_weights))
+
 
     if nb_epoch > 0 :
 
@@ -1195,94 +888,7 @@ def model_net(win1,win2,win3,sites,
 
 
     return model
-def load_blosum62_matrix(file_path):
-    """从 CSV 文件加载 BLOSUM62 矩阵"""
-    df = pd.read_csv(file_path, index_col=0)
-    blosum62 = df.to_dict()  # 将数据框转换为字典
-    amino_acids = df.columns.tolist()  # 提取氨基酸列表
-    return blosum62, amino_acids
 
-def get_blosum62_row(aa, df,valid_amino_acids):
-    """获取给定氨基酸的 BLOSUM62 矩阵行向量"""
-    if aa not in df.index:
-        return [0] * len(df.columns)
-    row = df.loc[aa]
-        # 保留有效氨基酸的得分，其它设置为0
-    return [row.get(other, 0) if other in valid_amino_acids else 0 for other in df.columns]
-
-def encode_sequence(sequence, df):
-    """将蛋白质序列编码为 BLOSUM62 矩阵的特征向量"""
-    valid_amino_acids = set(sequence)
-    encoding = []
-    for aa in sequence:
-        if aa =='X':
-            aa = 'O'
-        if aa in df.index:
-            row = get_blosum62_row(aa, df,valid_amino_acids)
-            encoding.append(row)
-        else:
-            raise ValueError(f"Unknown amino acid: {aa}")
-    return np.array(encoding)
-
-def BLOSUM_Encode(train_file,window_size):
-    pos = []  # list of position with protein name
-    rawseq = []
-    all_label = []
-    short_seqs = []
-    half_len = int((window_size - 1) / 2)
-    sites = 'S'
-
-    empty_aa = '-'  # 空白氨基酸，用于填充序列不足的情况
-    import csv
-    file_path = 'D:\Code_Implentation\DeepMethy\\blosum.csv'
-    df = pd.read_csv(file_path, index_col=0)
-    with open(train_file, 'r', encoding='utf-8', errors='ignore') as rf:
-        reader = csv.reader(rf)
-        for row in reader:
-            position = int(row[1])
-            sseq = row[2]
-            rawseq.append(row[2])
-            center = sseq[position - 1]
-            if (center in sites) or (center in 'T') or (center in 'Y'):
-                all_label.append(int(row[0]))
-                pos.append(row[1])
-
-                # 提取窗口内的氨基酸序列
-                if position - half_len > 0:
-                    start = int(position - half_len)
-                    left_seq = sseq[start - 1:position - 1]
-                else:
-                    left_seq = sseq[0:position - 1]
-
-                end = len(sseq)
-                if position + half_len < end:
-                    end = int(position + half_len)
-                right_seq = sseq[position:end]
-
-                # 处理序列不足窗口大小的情况
-                if len(left_seq) < half_len:
-                    nb_lack = half_len - len(left_seq)
-                    left_seq = ''.join([empty_aa for count in range(nb_lack)]) + left_seq
-
-                if len(right_seq) < half_len:
-                    nb_lack = half_len - len(right_seq)
-                    right_seq = right_seq + ''.join([empty_aa for count in range(nb_lack)])
-
-                # 将窗口序列编码为BLOSUM
-                shortseq = left_seq + center + right_seq
-                encoded_seq = []
-                encoded_seq.append(encode_sequence(shortseq, df))
-            short_seqs.append(encoded_seq)
-
-
-    # 转换标签为one-hot编码
-    targetY = to_categorical(all_label)
-    import numpy as np
-    # 将编码后的序列转换为numpy数组
-    Matr = np.array(short_seqs)
-    Matr = K.squeeze(Matr, axis=1)
-    Matr = np.array(Matr)
-    return Matr,targetY
 # 文件路径
 if __name__ == '__main__':
     model=model_net(win1=33,win2=20,win3=9,sites='Y',nb_epoch=50,coding='BLOSUM_PSSM_Y')
