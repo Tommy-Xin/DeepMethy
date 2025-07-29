@@ -41,7 +41,6 @@ def conv_factory(x, init_form, nb_filter, filter_size_block, dropout_rate=None, 
     :returns: keras network with b_norm, relu and convolution2d added
     :rtype: keras network
     """
-    #x = Activation('relu')(x)
     x = Conv1D(nb_filter, filter_size_block,
                       kernel_initializer=init_form,
                       activation='relu',
@@ -65,7 +64,6 @@ def transition(x, init_form, nb_filter, dropout_rate=None, weight_decay=1E-4):
     :rtype: keras model, after applying batch_norm, relu-conv, dropout, maxpool
 
     """
-    #x = Activation('relu')(x)
     x = Conv1D(nb_filter, kernel_size=1,
                       kernel_initializer=init_form,
                       activation='relu',
@@ -74,7 +72,6 @@ def transition(x, init_form, nb_filter, dropout_rate=None, weight_decay=1E-4):
                       kernel_regularizer=L2(weight_decay))(x)
     if dropout_rate:
         x = Dropout(dropout_rate)(x)
-    #x = AveragePooling2D((2, 2),padding='same')(x)
     x = AveragePooling1D(pool_size=2, padding='same')(x)
 
     return x
@@ -107,7 +104,6 @@ def denseblock(x, init_form, nb_layers, nb_filter, growth_rate,filter_size_block
     return x
 
 
-import numpy as np
 def attention_block(input_tensor):
     """ Attention mechanism in the form of squeeze and excitation block """
     filters = input_tensor.shape[-1]
@@ -116,8 +112,6 @@ def attention_block(input_tensor):
     se = Dense(filters, activation='sigmoid')(se)
     se = Reshape((1, filters))(se)
     return multiply([input_tensor, se])
-
-
 
 
 def multi_head_attention_fusion(x1, x2, x3, num_heads, Daxis):
@@ -193,9 +187,9 @@ def residual_block(x, init_form, nb_filter, filter_size, weight_decay):
 
 
 def weighted_binary_crossentropy(y_true, y_pred):
-    # 计算每个类别的权重
-    class_weights = K.sum(y_true) / (K.sum(1 - y_true) + 0.000001)  # 根据样本类别分布自动调整权重
-    # 计算加权的二分类交叉熵损失
+    # Calculate the weight for each class
+    class_weights = K.sum(y_true) / (K.sum(1 - y_true) + 0.000001)  # Automatically adjust the weights according to the sample class distribution
+    # Compute the weighted binary cross-entropy loss
     loss = K.mean(class_weights * K.binary_crossentropy(y_true, y_pred), axis=-1)
     return loss
 
@@ -224,7 +218,7 @@ def mid_loss(y_true, y_pred):
 
 def count_csv_files(folder_path):
     """
-    统计文件夹中的 CSV 文件数量
+    Count the number of CSV files in the folder
     """
     count = 0
     for file_name in os.listdir(folder_path):
@@ -235,10 +229,8 @@ def count_csv_files(folder_path):
 
 
 def read_pssm(file_path,window_size):
-    # 读取数据，跳过前两行（假设文件前两行是注释或元数据）
     df = pd.read_csv(file_path, delim_whitespace=True, skiprows=3, header=None)
 
-    # 获取所有列的名称（需要根据实际数据调整列名）
     columns = [
         "Pos", "Residue",
         "A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V",
@@ -246,31 +238,22 @@ def read_pssm(file_path,window_size):
         "K_mean", "Lambda"
     ]
 
-    # 为 DataFrame 指定列名
     df.columns = columns
-
     default_column = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y",
                       "V"]
-    # 提取 A 到 V 列
     df_sub = df.loc[:, default_column]
-
-
     df_sub = df_sub.loc[:,::2]
-    # 提取前 41 行
-    df_sub = df_sub.head(33)
+    df_sub = df_sub.head(41)
 
-    df_sub = df_sub.iloc[16-int((window_size-1)/2):17+int((window_size-1)/2),:]
+    df_sub = df_sub.iloc[20-int((window_size-1)/2):21+int((window_size-1)/2),:]
 
     return df_sub
 
 
-# 将 DataFrame 转换为 TensorFlow tensor
+# Covert DataFrame to TensorFlow tensor
 def df_to_tensor(df):
-    # 将 DataFrame 转换为 numpy 数组
     numpy_array = df.to_numpy()
-
-    # 将 numpy 数组转换为 TensorFlow tensor
-    tensor = tf.convert_to_tensor(numpy_array, dtype=tf.float32)  # 选择适当的数据类型
+    tensor = tf.convert_to_tensor(numpy_array, dtype=tf.float32)  
 
     return tensor
 
@@ -278,42 +261,33 @@ def df_to_tensor(df):
 def process_all_pssm_files(folder_path,window_size):
     all_tensors = []
 
-    # 遍历文件夹中的所有 PSSM 文件
     for filename in os.listdir(folder_path):
         if filename.endswith(".pssm"):
             file_path = os.path.join(folder_path, filename)
-
-            # 读取并处理 PSSM 文件
             df_extracted = read_pssm(file_path, window_size)
-
-            # 将 DataFrame 转换为 tensor
             tensor = df_to_tensor(df_extracted)
-
-            # 添加到列表中
             all_tensors.append(tensor)
 
-    # 将所有 tensor 合并成一个大的矩阵
     all_tensors_matrix = tf.stack(all_tensors)
 
     return all_tensors_matrix
 
 def load_blosum62_matrix(file_path):
-    """从 CSV 文件加载 BLOSUM62 矩阵"""
+    """Load the BLOSUM62 matrix from a CSV file"""
     df = pd.read_csv(file_path, index_col=0)
-    blosum62 = df.to_dict()  # 将数据框转换为字典
-    amino_acids = df.columns.tolist()  # 提取氨基酸列表
+    blosum62 = df.to_dict()  
+    amino_acids = df.columns.tolist() 
     return blosum62, amino_acids
 
 def get_blosum62_row(aa, df,valid_amino_acids):
-    """获取给定氨基酸的 BLOSUM62 矩阵行向量"""
+    """Retrieve the row vector of the BLOSUM62 matrix for a given amino acid"""
     if aa not in df.index:
         return [0] * len(df.columns)
     row = df.loc[aa]
-        # 保留有效氨基酸的得分，其它设置为0
     return [row.get(other, 0) if other in valid_amino_acids else 0 for other in df.columns]
 
 def encode_sequence(sequence, df):
-    """将蛋白质序列编码为 BLOSUM62 矩阵的特征向量"""
+    """Encode a protein sequence into feature vectors using the BLOSUM62 matrix"""
     valid_amino_acids = set(sequence)
     encoding = []
     for aa in sequence:
@@ -334,7 +308,7 @@ def BLOSUM_Encode(train_file,window_size):
     half_len = int((window_size - 1) / 2)
     sites = 'S'
 
-    empty_aa = '-'  # 空白氨基酸，用于填充序列不足的情况
+    empty_aa = '-'  
     import csv
     file_path = 'D:\Code_Implentation\DeepMethy\\blosum.csv'
     df = pd.read_csv(file_path, index_col=0)
@@ -349,7 +323,7 @@ def BLOSUM_Encode(train_file,window_size):
                 all_label.append(int(row[0]))
                 pos.append(row[1])
 
-                # 提取窗口内的氨基酸序列
+                # Extract amino sequence in the window
                 if position - half_len > 0:
                     start = int(position - half_len)
                     left_seq = sseq[start - 1:position - 1]
@@ -361,7 +335,7 @@ def BLOSUM_Encode(train_file,window_size):
                     end = int(position + half_len)
                 right_seq = sseq[position:end]
 
-                # 处理序列不足窗口大小的情况
+                # Handling the sequence smaller than the window size
                 if len(left_seq) < half_len:
                     nb_lack = half_len - len(left_seq)
                     left_seq = ''.join([empty_aa for count in range(nb_lack)]) + left_seq
@@ -370,17 +344,16 @@ def BLOSUM_Encode(train_file,window_size):
                     nb_lack = half_len - len(right_seq)
                     right_seq = right_seq + ''.join([empty_aa for count in range(nb_lack)])
 
-                # 将窗口序列编码为BLOSUM
+                # Enocding the window sequence to BLOSUM
                 shortseq = left_seq + center + right_seq
                 encoded_seq = []
                 encoded_seq.append(encode_sequence(shortseq, df))
             short_seqs.append(encoded_seq)
 
 
-    # 转换标签为one-hot编码
+    # Convert the label to one-hot
     targetY = to_categorical(all_label)
     import numpy as np
-    # 将编码后的序列转换为numpy数组
     Matr = np.array(short_seqs)
     Matr = K.squeeze(Matr, axis=1)
     Matr = np.array(Matr)
@@ -428,10 +401,7 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                           use_bias=False,
                           # W_regularizer=l2(weight_decay))(main_input)
                           kernel_regularizer=L2(weight_decay))(main_input_transpose)
-    # x1 = transformer_block(main_input, nb_filter)
-    # x1_transpose = transformer_block(main_input_transpose,nb_filter)
-    # x1 = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1)
-    # x1_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1_transpose)
+
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x1 = denseblock(x1, init_form, nb_layers, nb_filter, growth_rate, filter_size_block1,
