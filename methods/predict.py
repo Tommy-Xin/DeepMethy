@@ -63,7 +63,7 @@ def transition(x, init_form, nb_filter, dropout_rate=None, weight_decay=1E-4):
     :rtype: keras model, after applying batch_norm, relu-conv, dropout, maxpool
 
     """
-    #x = Activation('relu')(x)
+
     x = Conv1D(nb_filter, kernel_size=1,
                       kernel_initializer=init_form,
                       activation='relu',
@@ -72,7 +72,6 @@ def transition(x, init_form, nb_filter, dropout_rate=None, weight_decay=1E-4):
                       kernel_regularizer=L2(weight_decay))(x)
     if dropout_rate:
         x = Dropout(dropout_rate)(x)
-    #x = AveragePooling2D((2, 2),padding='same')(x)
     x = AveragePooling1D(pool_size=2, padding='same')(x)
 
     return x
@@ -100,13 +99,11 @@ def denseblock(x, init_form, nb_layers, nb_filter, growth_rate,filter_size_block
     for i in range(nb_layers):
         x = conv_factory(x, init_form, growth_rate, filter_size_block, dropout_rate, weight_decay)
         list_feat.append(x)
-        #x = concatenate(list_feat, mode='concat', concat_axis=concat_axis)
         x = concatenate(list_feat, axis=-1)
         nb_filter += growth_rate
     return x
 
 
-import numpy as np
 def attention_block(input_tensor):
     """ Attention mechanism in the form of squeeze and excitation block """
     filters = input_tensor.shape[-1]
@@ -115,8 +112,6 @@ def attention_block(input_tensor):
     se = Dense(filters, activation='sigmoid')(se)
     se = Reshape((1, filters))(se)
     return multiply([input_tensor, se])
-
-
 
 
 def multi_head_attention_fusion(x1, x2, x3, num_heads, Daxis):
@@ -192,9 +187,9 @@ def residual_block(x, init_form, nb_filter, filter_size, weight_decay):
 
 
 def weighted_binary_crossentropy(y_true, y_pred):
-    # 计算每个类别的权重
-    class_weights = K.sum(y_true) / (K.sum(1 - y_true) + 0.000001)  # 根据样本类别分布自动调整权重
-    # 计算加权的二分类交叉熵损失
+    # Calculate the weight for each class
+    class_weights = K.sum(y_true) / (K.sum(1 - y_true) + 0.000001)  # Automatically adjust the weights according to the sample class distribution
+    # Compute the weighted binary cross-entropy loss
     loss = K.mean(class_weights * K.binary_crossentropy(y_true, y_pred), axis=-1)
     return loss
 
@@ -234,10 +229,7 @@ def count_csv_files(folder_path):
 
 
 def read_pssm(file_path,window_size):
-    # 读取数据，跳过前两行（假设文件前两行是注释或元数据）
     df = pd.read_csv(file_path, delim_whitespace=True, skiprows=3, header=None)
-
-    # 获取所有列的名称（需要根据实际数据调整列名）
     columns = [
         "Pos", "Residue",
         "A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V",
@@ -253,21 +245,17 @@ def read_pssm(file_path,window_size):
 
 
     df_sub = df_sub.loc[:,::2]
-    df_sub = df_sub.head(33)
+    df_sub = df_sub.head(41)
 
-    df_sub = df_sub.iloc[16-int((window_size-1)/2):17+int((window_size-1)/2),:]
+    df_sub = df_sub.iloc[20-int((window_size-1)/2):21+int((window_size-1)/2),:]
 
     return df_sub
 
 
-# 将 DataFrame 转换为 TensorFlow tensor
+# Convert DataFrame to TensorFlow tensor
 def df_to_tensor(df):
-    # 将 DataFrame 转换为 numpy 数组
     numpy_array = df.to_numpy()
-
-    # 将 numpy 数组转换为 TensorFlow tensor
-    tensor = tf.convert_to_tensor(numpy_array, dtype=tf.float32)  # 选择适当的数据类型
-
+    tensor = tf.convert_to_tensor(numpy_array, dtype=tf.float32)  
     return tensor
 
 
@@ -706,22 +694,22 @@ def model_net(X_BLtest1,X_BLtest2,X_BLtest3,X_PSSMtest1,X_PSSMtest2,X_PSSMtest3,
 
     return model
 def load_blosum62_matrix(file_path):
-    """从 CSV 文件加载 BLOSUM62 矩阵"""
+    """Load the BLOSUM62 matrix from a CSV file"""
     df = pd.read_csv(file_path, index_col=0)
-    blosum62 = df.to_dict()  # 将数据框转换为字典
-    amino_acids = df.columns.tolist()  # 提取氨基酸列表
+    blosum62 = df.to_dict()  
+    amino_acids = df.columns.tolist()  
     return blosum62, amino_acids
 
 def get_blosum62_row(aa, df,valid_amino_acids):
-    """获取给定氨基酸的 BLOSUM62 矩阵行向量"""
+    """Retrieve the row vector of the BLOSUM62 matrix for a given amino acid"""
     if aa not in df.index:
         return [0] * len(df.columns)
     row = df.loc[aa]
-        # 保留有效氨基酸的得分，其它设置为0
+    
     return [row.get(other, 0) if other in valid_amino_acids else 0 for other in df.columns]
 
 def encode_sequence(sequence, df):
-    """将蛋白质序列编码为 BLOSUM62 矩阵的特征向量"""
+    """Encode a protein sequence into feature vectors using the BLOSUM62 matrix"""
     valid_amino_acids = set(sequence)
     encoding = []
     for aa in sequence:
@@ -740,11 +728,10 @@ def BLOSUM_Encode(train_file,window_size):
     all_label = []
     short_seqs = []
     half_len = int((window_size - 1) / 2)
-    sites = 'S'
+    sites = 'R'
 
-    empty_aa = '-'  # 空白氨基酸，用于填充序列不足的情况
-    import csv
-    file_path = 'D:\Code_Implentation\DeepMethy\\blosum.csv'
+    empty_aa = '-'  # 
+    file_path = '.\DeepMethy\\blosum.csv'
     df = pd.read_csv(file_path, index_col=0)
     with open(train_file, 'r') as rf:
         reader = csv.reader(rf)
@@ -757,7 +744,7 @@ def BLOSUM_Encode(train_file,window_size):
                 all_label.append(int(row[0]))
                 pos.append(row[1])
 
-                # 提取窗口内的氨基酸序列
+                # Extract amino acid sequence in the window
                 if position - half_len > 0:
                     start = int(position - half_len)
                     left_seq = sseq[start - 1:position - 1]
@@ -769,7 +756,7 @@ def BLOSUM_Encode(train_file,window_size):
                     end = int(position + half_len)
                 right_seq = sseq[position:end]
 
-                # 处理序列不足窗口大小的情况
+                # Handling the sequence less than the window size
                 if len(left_seq) < half_len:
                     nb_lack = half_len - len(left_seq)
                     left_seq = ''.join([empty_aa for count in range(nb_lack)]) + left_seq
@@ -785,10 +772,8 @@ def BLOSUM_Encode(train_file,window_size):
             short_seqs.append(encoded_seq)
 
 
-    # 转换标签为one-hot编码
     targetY = to_categorical(all_label)
-    import numpy as np
-    # 将编码后的序列转换为numpy数组
+
     Matr = np.array(short_seqs)
     Matr = K.squeeze(Matr, axis=1)
     Matr = np.array(Matr)
@@ -811,17 +796,17 @@ def predict_for_deepmeths(sites,coding,
 
     import numpy as np
     # win1 = 51->41(xin)
-    win1 = 33
-    win2 = 20
-    win3 = 9
+    win1 = 41
+    win2 = 25
+    win3 = 11
 
-    fold_path = 'D:/Code_Implentation/DeepMethy/dataset/Y_test.csv'
+    fold_path = './DeepMethy/dataset/Y_test.csv'
 
     X_BLtest1,y_test = BLOSUM_Encode(fold_path,win1)
     X_BLtest2,_ = BLOSUM_Encode(fold_path,win2)
     X_BLtest3,_ = BLOSUM_Encode(fold_path,win3)
 
-    folder_path = 'D:/Code_Implentation/DeepMethy/phos/Y-test'
+    folder_path = './DeepMethy/Y-test'
 
     X_PSSMtest1 = (process_all_pssm_files(folder_path, window_size=win1)).numpy()
     X_PSSMtest2 = (process_all_pssm_files(folder_path, window_size=win2)).numpy()
@@ -833,7 +818,6 @@ def predict_for_deepmeths(sites,coding,
     model = model_net(X_BLtest1, X_BLtest2, X_BLtest3,X_PSSMtest1,X_PSSMtest2,X_PSSMtest3, y_test,win1=41,win2=25,win3=11,sites='R', nb_epoch=0, coding=coding)
 
     outputfile = 'D:/Code_Implentation/DeepMethy/result/general_{:s}_Code({})'.format(site,coding)
-    # model_weight = './models/model_general_{:s}_win({:d},{:d},{:d})_Code({}).weights.h5'.format(site,win1,win2,win3,coding)
     model_weight="D:/Code_Implentation/DeepMethy/models/model_Y_Code({}).weights.h5".format(coding)
     model.load_weights(model_weight)
 
@@ -850,7 +834,6 @@ def predict_for_deepmeths(sites,coding,
 
 
     predictions_R = model.predict([X_BLtest1, X_BLtest2, X_BLtest3, X_PSSMtest1, X_PSSMtest2, X_PSSMtest3])
-    # results_R = np.column_stack((position1,predictions_R[:, 1]))
     results_R = predictions_R[:, 1]
 
     result = pd.DataFrame(predictions_R[:, 1])
@@ -873,27 +856,17 @@ def predict_for_deepmeths(sites,coding,
             true_label[i]=int(0)
     true_label.astype(int)
 
-
-    # 从代码中获取预测标签和真实标签
-    # 假设 pred_label 和 true_label 已经在上述代码中计算出
-
-    # 生成散点图
-
-
     cm = confusion_matrix(true_label, pred_label)
-    # 计算准确率
+  
     accuracy = accuracy_score(true_label, pred_label)
     print("Accuracy:", accuracy)
 
-    # 计算精确率
     precision = precision_score(true_label, pred_label, average='weighted')
     print("Precision:", precision)
 
-    # 计算召回率
     recall = recall_score(true_label, pred_label, average='weighted')
     print("Recall:", recall)
 
-    # 计算F1分数
     f1 = f1_score(true_label, pred_label, average='weighted')
     print("F1 Score:", f1)
 
@@ -902,11 +875,11 @@ def predict_for_deepmeths(sites,coding,
     FP=cm[1][0]
     TN=cm[1][1]
 
-    #计算MCC
+
     MCC=(TP*TN-FN*FP)/math.sqrt((TP+FN)*(TP+FP)*(TN+FN)*(TN+FP))
     print("MCC score is:",MCC)
 
-    # plt.ioff()
+
     from sklearn.metrics import roc_curve, auc
     from sklearn.metrics import precision_recall_curve
     import matplotlib.pyplot as plt
@@ -918,11 +891,11 @@ def predict_for_deepmeths(sites,coding,
     fprs, tprs, thresholds = roc_curve(true_label, results)
     Precision, Recall, thresholds  = precision_recall_curve(true_label,results)
     #
-    np.save("D:/Code_Implentation/DeepMethy/npy/Y/fpr_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding), fprs)
-    np.save("D:/Code_Implentation/DeepMethy/npy/Y/tpr_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding), tprs)
+    np.save("./DeepMethy/npy/Y/fpr_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding), fprs)
+    np.save("./DeepMethy/npy/Y/tpr_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding), tprs)
 
-    np.save("D:/Code_Implentation/DeepMethy/npy/Y/precision_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding), Precision)
-    np.save("D:/Code_Implentation/DeepMethy/npy/Y/recall_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding), Recall)
+    np.save("./DeepMethy/npy/Y/precision_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding), Precision)
+    np.save("./DeepMethy/npy/Y/recall_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding), Recall)
     print("save .npy done")
     pr_auc = auc(Recall, Precision)
     #
@@ -931,10 +904,10 @@ def predict_for_deepmeths(sites,coding,
     print("prauc",pr_auc)
     #
     # # 加载.npy文件中的数据
-    fprs = np.load("D:/Code_Implentation/DeepMethy/npy/Y/fpr_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding))
-    tprs = np.load("D:/Code_Implentation/DeepMethy/npy/Y/tpr_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding))
-    Precision = np.load("D:/Code_Implentation/DeepMethy/npy/Y/precision_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding))
-    Recall = np.load("D:/Code_Implentation/DeepMethy/npy/Y/recall_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding))
+    fprs = np.load("./DeepMethy/npy/Y/fpr_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding))
+    tprs = np.load("./DeepMethy/npy/Y/tpr_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding))
+    Precision = np.load("./DeepMethy/npy/Y/precision_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding))
+    Recall = np.load("./DeepMethy/npy/Y/recall_general_{:s}_win({:d},{:d},{:d}_Code({}).npy".format(site,win1,win2,win3,coding))
 
     # # 绘制ROC曲线
     plt.figure(figsize=(8, 6))
@@ -942,10 +915,10 @@ def predict_for_deepmeths(sites,coding,
     plt.plot([0, 1], [0, 1], color='gray', linestyle='--')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('D:/Code_Implentation/DeepMethy/dsvisualization/Receiver Operating Characteristic (ROC) Curve')
+    plt.title('./DeepMethy/dsvisualization/Receiver Operating Characteristic (ROC) Curve')
     plt.legend(loc='lower right')
     plt.grid(True)
-    plt.savefig("D:/Code_Implentation/DeepMethy/visualization/ROC_win({},{},{}_Code({}).png".format(win1,win2,win3,coding))
+    plt.savefig("./DeepMethy/visualization/ROC_win({},{},{}_Code({}).png".format(win1,win2,win3,coding))
     plt.show()
 
     #
@@ -957,7 +930,7 @@ def predict_for_deepmeths(sites,coding,
     plt.title('Precision-Recall Curve')
     plt.legend(loc='lower left')
     #plt.grid(True)
-    plt.savefig("D:/Code_Implentation/DeepMethy/visualization/Precision-Recall_win({},{},{}_Code({}).png".format(win1,win2,win3,coding))
+    plt.savefig("./DeepMethy/visualization/Precision-Recall_win({},{},{}_Code({}).png".format(win1,win2,win3,coding))
     plt.show()
 
     #
@@ -965,7 +938,7 @@ def predict_for_deepmeths(sites,coding,
     metrics_names = ['Accuracy', 'Precision', 'Recall', 'F1 Score', 'MCC']
     metrics_values = [accuracy, precision, recall, f1, MCC]
     evaluate=pd.DataFrame([metrics_values],columns=['Accuracy', 'Precision', 'Recall', 'F1 Score', 'MCC'])
-    evaluate.to_csv("D:/Code_Implentation/DeepMethy/dataset/evaluate_win({},{},{})_Code({}).csv".format(win1,win2,win3,coding),index=False)
+    evaluate.to_csv("./DeepMethy/dataset/evaluate_win({},{},{})_Code({}).csv".format(win1,win2,win3,coding),index=False)
 
     # Plotting
     plt.figure(figsize=(10, 6))
@@ -975,7 +948,7 @@ def predict_for_deepmeths(sites,coding,
     plt.title('Performance Metrics')
     plt.ylim(0, 1)  # Adjust y-axis limits if needed
     plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.savefig("D:/Code_Implentation/DeepMethy/visualization/Evaluate_Metric_win({},{},{})_Code({}).png".format(win1,win2,win3,coding))
+    plt.savefig("./DeepMethy/visualization/Evaluate_Metric_win({},{},{})_Code({}).png".format(win1,win2,win3,coding))
     plt.show()
 
 
@@ -984,6 +957,6 @@ def predict_for_deepmeths(sites,coding,
 
 # 文件路径
 if __name__ == '__main__':
-    site='Y'
-    code='BLOSUM_PSSM_Y'
+    site='R'
+    code='BLOSUM_PSSM_R'
     predict_for_deepmeths(site,coding=code)
