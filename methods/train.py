@@ -382,10 +382,10 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
     :rtype: keras model
 
     """
-    # first input of 33 seq #
+    # first input of 41 seq #
     main_input = Input(shape=img_BLdim1)
     main_input_transpose = Permute((2, 1))(main_input)
-    # model_input = Input(shape=img_dim)
+
     # Initial convolution
     x1 = Conv1D(nb_filter, filter_size_ori,
                 kernel_initializer=init_form,
@@ -426,15 +426,11 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
 
     x1 = residual_block(x1, init_form, nb_filter, filter_size_block1, weight_decay)
     x1_transpose = residual_block(x1_transpose, init_form, nb_filter, filter_size_block1, weight_decay)
-
-    # x1 = PReLU()(x1)
-    # x1_transpose = PReLU()(x1_transpose)
     x1 = Activation('relu')(x1)
     x1_transpose = Activation('relu')(x1_transpose)
 
-    # x1 = two_head_attention_fusion(x1,x1_transpose,2)
 
-    # second input of 21 seq #
+    # second input of 25 seq #
     input2 = Input(shape=img_BLdim2)
     input2_transpose = Permute((2, 1))(input2)
     x2 = Conv1D(nb_filter, filter_size_ori,
@@ -449,10 +445,6 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                           padding='same',
                           use_bias=False,
                           kernel_regularizer=L2(weight_decay))(input2_transpose)
-    # x2 = transformer_block(input2, nb_filter)
-    # x2_transpose = transformer_block(input2_transpose,nb_filter)
-    # x2 = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2)
-    # x2_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2_transpose)
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x2 = denseblock(x2, init_form, nb_layers, nb_filter, growth_rate, filter_size_block2,
@@ -480,12 +472,8 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
 
     x2 = Activation('relu')(x2)
     x2_transpose = Activation('relu')(x2_transpose)
-    # x2 = PReLU()(x2)
-    # x2_transpose = PReLU()(x2_transpose)
 
-    # x2 = two_head_attention_fusion(x2,x2_transpose,2)
-
-    # third input seq of 15 #
+    # third input seq of 11 #
     input3 = Input(shape=img_BLdim3)
     input3_transpose = Permute((2, 1))(input3)
     x3 = Conv1D(nb_filter, filter_size_ori,
@@ -500,10 +488,7 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                           padding='same',
                           use_bias=False,
                           kernel_regularizer=L2(weight_decay))(input3_transpose)
-    # x3 = transformer_block(input3, nb_filter)
-    # x3_transpose = transformer_block(input3_transpose,nb_filter)
-    # x3 = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3)
-    # x3_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3_transpose)
+
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x3 = denseblock(x3, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
@@ -530,23 +515,13 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
 
     x3 = Activation('relu')(x3)
     x3_transpose = Activation('relu')(x3_transpose)
-    # x3 = PReLU()(x3)
-    # x3_transpose = PReLU()(x3_transpose)
-    # x3 = two_head_attention_fusion(x3, x3_transpose,2)
 
-    # x=concatenate([x1,x2,x3],axis=1)
-    # 需要改进!!!
-
-    # x = Flatten()(attention)  有问题
-    # x = attention_block(x)
     x = concatenate([x1, x2, x3], axis=1)
     x_transpose = concatenate([x1_transpose, x2_transpose, x3_transpose], axis=2)
-    # x = multi_head_attention_fusion(x1, x2, x3, num_heads=6, Daxis=1)
-    # x_transpose = multi_head_attention_fusion(x1_transpose,x2_transpose,x3_transpose, num_heads=6, Daxis=2) #
+
 
     main_PSSMinput = Input(shape=img_PSSMdim1)
     main_PSSMinput_transpose = Permute((2, 1))(main_PSSMinput)
-    # model_input = Input(shape=img_dim)
     # Initial convolution
     x1PSSM = Conv1D(nb_filter, filter_size_ori,
                     kernel_initializer=init_form,
@@ -562,10 +537,6 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                               use_bias=False,
                               # W_regularizer=l2(weight_decay))(main_input)
                               kernel_regularizer=L2(weight_decay))(main_PSSMinput_transpose)
-    # x1PSSM = transformer_block(main_PSSMinput, nb_filter)
-    # x1PSSM_transpose = transformer_block(main_PSSMinput_transpose,nb_filter)
-    # x1PSSM = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1PSSM)
-    # x1PSSM_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1PSSM_transpose)
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x1PSSM = denseblock(x1PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block1,
@@ -592,12 +563,9 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
     x1PSSM = residual_block(x1PSSM, init_form, nb_filter, filter_size_block1, weight_decay)
     x1PSSM_transpose = residual_block(x1PSSM_transpose, init_form, nb_filter, filter_size_block1, weight_decay)
 
-    # x1PSSM = PReLU()(x1PSSM)
-    # x1PSSM_transpose = PReLU()(x1PSSM_transpose)
     x1PSSM = Activation('relu')(x1PSSM)
     x1PSSM_transpose = Activation('relu')(x1PSSM_transpose)
 
-    # x1 = two_head_attention_fusion(x1,x1_transpose,2)
 
     # second input of 21 seq #
     inputPSSM2 = Input(shape=img_PSSMdim2)
@@ -614,10 +582,6 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                               padding='same',
                               use_bias=False,
                               kernel_regularizer=L2(weight_decay))(inputPSSM2_transpose)
-    # x2PSSM = transformer_block(inputPSSM2, nb_filter)
-    # x2PSSM_transpose = transformer_block(inputPSSM2_transpose,nb_filter)
-    # x2PSSM = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2PSSM)
-    # x2PSSM_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2PSSM_transpose)
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x2PSSM = denseblock(x2PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block2,
@@ -644,12 +608,8 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
     x2PSSM = residual_block(x2PSSM, init_form, nb_filter, filter_size_block2, weight_decay)
     x2PSSM_transpose = residual_block(x2PSSM_transpose, init_form, nb_filter, filter_size_block2, weight_decay)
 
-    # x2PSSM = PReLU()(x2PSSM)
-    # x2PSSM_transpose = PReLU()(x2PSSM_transpose)
     x2PSSM = Activation('relu')(x2PSSM)
     x2PSSM_transpose = Activation('relu')(x2PSSM_transpose)
-
-    # x2 = two_head_attention_fusion(x2,x2_transpose,2)
 
     # third input seq of 15 #
     inputPSSM3 = Input(shape=img_PSSMdim3)
@@ -666,10 +626,6 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                               padding='same',
                               use_bias=False,
                               kernel_regularizer=L2(weight_decay))(inputPSSM3_transpose)
-    # x3PSSM = transformer_block(inputPSSM3, nb_filter)
-    # x3PSSM_transpose = transformer_block(inputPSSM3_transpose,nb_filter)
-    # x3PSSM = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3PSSM)
-    # x3PSSM_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3PSSM_transpose)
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x3PSSM = denseblock(x3PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
@@ -697,37 +653,18 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
 
     x3PSSM = Activation('relu')(x3PSSM)
     x3PSSM_transpose = Activation('relu')(x3PSSM_transpose)
-    # x3PSSM = PReLU()(x3PSSM)
-    # x3PSSM_transpose = PReLU()(x3PSSM_transpose)
 
-    # x3 = two_head_attention_fusion(x3, x3_transpose,2)
-
-    # x=concatenate([x1,x2,x3],axis=1)
-    # 需要改进!!!
-
-    # x = Flatten()(attention)  有问题
-    # x = attention_block(x)
     xPSSM = concatenate([x1PSSM, x2PSSM, x3PSSM], axis=1)
     xPSSM_transpose = concatenate([x1PSSM_transpose, x2PSSM_transpose, x3PSSM_transpose], axis=2)
-    # xPSSM = multi_head_attention_fusion(x1PSSM, x2PSSM, x3PSSM, num_heads=6, Daxis=1)
-    # xPSSM_transpose = multi_head_attention_fusion(x1PSSM_transpose, x2PSSM_transpose, x3PSSM_transpose, num_heads=6, Daxis=2)
+
     x = concatenate([x, xPSSM], axis=-1)
     x_t = concatenate([x_transpose, xPSSM_transpose], axis=1)
-    # x = two_head_attention_fusion(x,xPSSM,2,axis=-1)
-    # x_t = two_head_attention_fusion(x_transpose, xPSSM_transpose, 2, axis=1)
 
-    #
-    # x = two_head_attention_fusion(x,x_transpose,4,axis=1)
-    # x = concatenate([x,xPSSM],axis=-1)
-    # x_t = two_head_attention_fusion(x_transpose,xPSSM_transpose,2,axis=1)
-    # x_t = concatenate([x_transpose,xPSSM_transpose],axis=1)
     x_t_last = x_t.shape[-1]
     x_last_shape = x.shape[-1]
     x_t = Conv1D(filters=x_last_shape, kernel_size=1)(x_t)  # 可改进
-    # x = Conv1D(filters=x_t_last,kernel_size=1)(x)
-    # x = concatenate([x,x_t],axis=1)
     x = concatenate([x, x_t], axis=1)
-    # x = two_head_attention_fusion(x,x_t,num_heads=6,axis=1)
+    
 
     x = Flatten()(x)
 
