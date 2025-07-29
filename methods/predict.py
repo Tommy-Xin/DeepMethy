@@ -245,17 +245,14 @@ def read_pssm(file_path,window_size):
         "K_mean", "Lambda"
     ]
 
-    # 为 DataFrame 指定列名
     df.columns = columns
 
     default_column = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y",
                       "V"]
-    # 提取 A 到 V 列
     df_sub = df.loc[:, default_column]
 
 
     df_sub = df_sub.loc[:,::2]
-    # 提取前 41 行
     df_sub = df_sub.head(33)
 
     df_sub = df_sub.iloc[16-int((window_size-1)/2):17+int((window_size-1)/2),:]
@@ -320,7 +317,7 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
     :rtype: keras model
 
     """
-    # first input of 33 seq #
+    # first input of 41 seq #
     main_input = Input(shape=img_BLdim1)
     main_input_transpose = Permute((2, 1))(main_input)
     # model_input = Input(shape=img_dim)
@@ -339,10 +336,7 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                           use_bias=False,
                           # W_regularizer=l2(weight_decay))(main_input)
                           kernel_regularizer=L2(weight_decay))(main_input_transpose)
-    # x1 = transformer_block(main_input, nb_filter)
-    # x1_transpose = transformer_block(main_input_transpose,nb_filter)
-    # x1 = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1)
-    # x1_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1_transpose)
+ 
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x1 = denseblock(x1, init_form, nb_layers, nb_filter, growth_rate, filter_size_block1,
@@ -368,14 +362,11 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
     x1 = residual_block(x1, init_form, nb_filter, filter_size_block1, weight_decay)
     x1_transpose = residual_block(x1_transpose, init_form, nb_filter, filter_size_block1, weight_decay)
 
-    # x1 = PReLU()(x1)
-    # x1_transpose = PReLU()(x1_transpose)
     x1 = Activation('relu')(x1)
     x1_transpose = Activation('relu')(x1_transpose)
 
-    # x1 = two_head_attention_fusion(x1,x1_transpose,2)
 
-    # second input of 21 seq #
+    # second input of 25 seq #
     input2 = Input(shape=img_BLdim2)
     input2_transpose = Permute((2, 1))(input2)
     x2 = Conv1D(nb_filter, filter_size_ori,
@@ -390,10 +381,7 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                           padding='same',
                           use_bias=False,
                           kernel_regularizer=L2(weight_decay))(input2_transpose)
-    # x2 = transformer_block(input2, nb_filter)
-    # x2_transpose = transformer_block(input2_transpose,nb_filter)
-    # x2 = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2)
-    # x2_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2_transpose)
+
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x2 = denseblock(x2, init_form, nb_layers, nb_filter, growth_rate, filter_size_block2,
@@ -421,12 +409,9 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
 
     x2 = Activation('relu')(x2)
     x2_transpose = Activation('relu')(x2_transpose)
-    # x2 = PReLU()(x2)
-    # x2_transpose = PReLU()(x2_transpose)
 
-    # x2 = two_head_attention_fusion(x2,x2_transpose,2)
 
-    # third input seq of 15 #
+    # third input seq of 11 #
     input3 = Input(shape=img_BLdim3)
     input3_transpose = Permute((2, 1))(input3)
     x3 = Conv1D(nb_filter, filter_size_ori,
@@ -441,10 +426,7 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                           padding='same',
                           use_bias=False,
                           kernel_regularizer=L2(weight_decay))(input3_transpose)
-    # x3 = transformer_block(input3, nb_filter)
-    # x3_transpose = transformer_block(input3_transpose,nb_filter)
-    # x3 = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3)
-    # x3_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3_transpose)
+
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x3 = denseblock(x3, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
@@ -471,23 +453,13 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
 
     x3 = Activation('relu')(x3)
     x3_transpose = Activation('relu')(x3_transpose)
-    # x3 = PReLU()(x3)
-    # x3_transpose = PReLU()(x3_transpose)
-    # x3 = two_head_attention_fusion(x3, x3_transpose,2)
 
-    # x=concatenate([x1,x2,x3],axis=1)
-    # 需要改进!!!
-
-    # x = Flatten()(attention)  有问题
-    # x = attention_block(x)
     x = concatenate([x1, x2, x3], axis=1)
     x_transpose = concatenate([x1_transpose, x2_transpose, x3_transpose], axis=2)
-    # x = multi_head_attention_fusion(x1, x2, x3, num_heads=6, Daxis=1)
-    # x_transpose = multi_head_attention_fusion(x1_transpose,x2_transpose,x3_transpose, num_heads=6, Daxis=2) #
 
     main_PSSMinput = Input(shape=img_PSSMdim1)
     main_PSSMinput_transpose = Permute((2, 1))(main_PSSMinput)
-    # model_input = Input(shape=img_dim)
+
     # Initial convolution
     x1PSSM = Conv1D(nb_filter, filter_size_ori,
                     kernel_initializer=init_form,
@@ -503,10 +475,7 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                               use_bias=False,
                               # W_regularizer=l2(weight_decay))(main_input)
                               kernel_regularizer=L2(weight_decay))(main_PSSMinput_transpose)
-    # x1PSSM = transformer_block(main_PSSMinput, nb_filter)
-    # x1PSSM_transpose = transformer_block(main_PSSMinput_transpose,nb_filter)
-    # x1PSSM = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1PSSM)
-    # x1PSSM_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x1PSSM_transpose)
+
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x1PSSM = denseblock(x1PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block1,
@@ -533,14 +502,10 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
     x1PSSM = residual_block(x1PSSM, init_form, nb_filter, filter_size_block1, weight_decay)
     x1PSSM_transpose = residual_block(x1PSSM_transpose, init_form, nb_filter, filter_size_block1, weight_decay)
 
-    # x1PSSM = PReLU()(x1PSSM)
-    # x1PSSM_transpose = PReLU()(x1PSSM_transpose)
     x1PSSM = Activation('relu')(x1PSSM)
     x1PSSM_transpose = Activation('relu')(x1PSSM_transpose)
 
-    # x1 = two_head_attention_fusion(x1,x1_transpose,2)
-
-    # second input of 21 seq #
+    # second input of 25 seq #
     inputPSSM2 = Input(shape=img_PSSMdim2)
     inputPSSM2_transpose = Permute((2, 1))(inputPSSM2)
     x2PSSM = Conv1D(nb_filter, filter_size_ori,
@@ -555,10 +520,7 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                               padding='same',
                               use_bias=False,
                               kernel_regularizer=L2(weight_decay))(inputPSSM2_transpose)
-    # x2PSSM = transformer_block(inputPSSM2, nb_filter)
-    # x2PSSM_transpose = transformer_block(inputPSSM2_transpose,nb_filter)
-    # x2PSSM = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2PSSM)
-    # x2PSSM_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x2PSSM_transpose)
+
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x2PSSM = denseblock(x2PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block2,
@@ -585,14 +547,13 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
     x2PSSM = residual_block(x2PSSM, init_form, nb_filter, filter_size_block2, weight_decay)
     x2PSSM_transpose = residual_block(x2PSSM_transpose, init_form, nb_filter, filter_size_block2, weight_decay)
 
-    # x2PSSM = PReLU()(x2PSSM)
-    # x2PSSM_transpose = PReLU()(x2PSSM_transpose)
+
     x2PSSM = Activation('relu')(x2PSSM)
     x2PSSM_transpose = Activation('relu')(x2PSSM_transpose)
 
-    # x2 = two_head_attention_fusion(x2,x2_transpose,2)
 
-    # third input seq of 15 #
+
+    # third input seq of 11 #
     inputPSSM3 = Input(shape=img_PSSMdim3)
     inputPSSM3_transpose = Permute((2, 1))(inputPSSM3)
     x3PSSM = Conv1D(nb_filter, filter_size_ori,
@@ -607,10 +568,7 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
                               padding='same',
                               use_bias=False,
                               kernel_regularizer=L2(weight_decay))(inputPSSM3_transpose)
-    # x3PSSM = transformer_block(inputPSSM3, nb_filter)
-    # x3PSSM_transpose = transformer_block(inputPSSM3_transpose,nb_filter)
-    # x3PSSM = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3PSSM)
-    # x3PSSM_transpose = Bidirectional(LSTM(units=nb_filter,return_sequences=True))(x3PSSM_transpose)
+
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
         x3PSSM = denseblock(x3PSSM, init_form, nb_layers, nb_filter, growth_rate, filter_size_block3,
@@ -638,37 +596,15 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
 
     x3PSSM = Activation('relu')(x3PSSM)
     x3PSSM_transpose = Activation('relu')(x3PSSM_transpose)
-    # x3PSSM = PReLU()(x3PSSM)
-    # x3PSSM_transpose = PReLU()(x3PSSM_transpose)
 
-    # x3 = two_head_attention_fusion(x3, x3_transpose,2)
-
-    # x=concatenate([x1,x2,x3],axis=1)
-    # 需要改进!!!
-
-    # x = Flatten()(attention)  有问题
-    # x = attention_block(x)
     xPSSM = concatenate([x1PSSM, x2PSSM, x3PSSM], axis=1)
     xPSSM_transpose = concatenate([x1PSSM_transpose, x2PSSM_transpose, x3PSSM_transpose], axis=2)
-    # xPSSM = multi_head_attention_fusion(x1PSSM, x2PSSM, x3PSSM, num_heads=6, Daxis=1)
-    # xPSSM_transpose = multi_head_attention_fusion(x1PSSM_transpose, x2PSSM_transpose, x3PSSM_transpose, num_heads=6, Daxis=2)
     x = concatenate([x, xPSSM], axis=-1)
     x_t = concatenate([x_transpose, xPSSM_transpose], axis=1)
-    # x = two_head_attention_fusion(x,xPSSM,2,axis=-1)
-    # x_t = two_head_attention_fusion(x_transpose, xPSSM_transpose, 2, axis=1)
-
-    #
-    # x = two_head_attention_fusion(x,x_transpose,4,axis=1)
-    # x = concatenate([x,xPSSM],axis=-1)
-    # x_t = two_head_attention_fusion(x_transpose,xPSSM_transpose,2,axis=1)
-    # x_t = concatenate([x_transpose,xPSSM_transpose],axis=1)
     x_t_last = x_t.shape[-1]
     x_last_shape = x.shape[-1]
     x_t = Conv1D(filters=x_last_shape, kernel_size=1)(x_t)  # 可改进
-    # x = Conv1D(filters=x_t_last,kernel_size=1)(x)
-    # x = concatenate([x,x_t],axis=1)
     x = concatenate([x, x_t], axis=1)
-    # x = two_head_attention_fusion(x,x_t,num_heads=6,axis=1)
 
     x = Flatten()(x)
 
@@ -680,7 +616,6 @@ def Methys(nb_classes, nb_layers, img_BLdim1, img_BLdim2, img_BLdim3, img_PSSMdi
               bias_regularizer=L2(weight_decay))(x)  # unsure a probleming point
 
     x = Dropout(dropout_dense)(x)
-    # softmax
 
     output1 = Dense(nb_classes, activation='softmax', kernel_initializer=init_form,
                     kernel_regularizer=L2(weight_decay),
@@ -747,15 +682,8 @@ def model_net(X_BLtest1,X_BLtest2,X_BLtest3,X_PSSMtest1,X_PSSMtest2,X_PSSMtest3,
     ###################
     # Construct model #
     ###################
-    # from methods.Methy import Methys
-
-
-
-
     opt = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
-
     l2_lambda=0.01
-
     regularization_loss = 0.0
     for weight in model.trainable_weights:
         regularization_loss += tf.nn.l2_loss(weight)
@@ -773,12 +701,6 @@ def model_net(X_BLtest1,X_BLtest2,X_BLtest3,X_PSSMtest1,X_PSSMtest2,X_PSSMtest3,
     model.compile(loss=weighted_binary_crossentropy,
                     optimizer=opt,
                     metrics=['accuracy'])
-    # y_train_squeezed = (np.argmax(y_train,axis=1)).astype(int)
-    #
-    # # 计算类别权重
-    # class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train_squeezed),
-    #                                      y=y_train_squeezed)
-    # class_weights = dict(enumerate(class_weights))
 
 
 
@@ -951,95 +873,6 @@ def predict_for_deepmeths(sites,coding,
             true_label[i]=int(0)
     true_label.astype(int)
 
-    # import numpy as np
-    # import matplotlib.pyplot as plt
-    # from sklearn.manifold import TSNE
-    # from keras.src.models import Model
-    #
-    # # 假设 model 是你已经训练好的 Keras 模型
-    # # 获取特征嵌入层的输出，这里假设是倒数第二层
-    # intermediate_layer_model = Model(inputs=model.input,
-    #                                  outputs=model.layers[-2].output)
-    #
-    # # 从数据集中获取嵌入和标签
-    # embeddings = intermediate_layer_model.predict([X_BLtest1,X_BLtest2,X_BLtest3,X_PSSMtest1,X_PSSMtest2,X_PSSMtest3])
-    # labels = np.argmax(y_test, axis=1)
-    #
-    # # 使用 t-SNE 将高维特征降到 2D 空间
-    # tsne = TSNE(n_components=2, random_state=42)
-    # embeddings_2d = tsne.fit_transform(embeddings)
-    #
-    # # 可视化
-    # plt.figure(figsize=(8, 6))
-    # for label in np.unique(labels):
-    #     idx = labels == label
-    #     plt.scatter(embeddings_2d[idx, 0], embeddings_2d[idx, 1], label=f'Label {label}', s=5)
-    # # plt.scatter(embeddings_2d[:, 0], embeddings_2d[:, 1], c=labels, cmap='viridis', s=5)
-    #
-    # plt.title('DeepMethy')
-    # plt.xlabel('Component 1')
-    # plt.ylabel('Component 2')
-    # plt.legend()
-    # plt.savefig('t-SNE DeepMethy.png')
-    # plt.show()
-    #
-    # layer_weights = model.layers[-1].get_weights()[0]
-    #
-    # plt.figure(figsize=(10, 8))
-    # plt.imshow(layer_weights, cmap='viridis', aspect='auto')
-    # plt.colorbar()
-    # plt.title('DeepMethy')
-    # plt.savefig('Heatmap DeepMethy.png')
-    # plt.show()
-    #
-    # import numpy as np
-    # import matplotlib.pyplot as plt
-    #
-    # # 假设我们有测试集 X_test 和真实标签 y_test
-    # # 以及模型对测试集的预测值
-    # y_pred = model.predict([X_BLtest1,X_BLtest2,X_BLtest3,X_PSSMtest1,X_PSSMtest2,X_PSSMtest3])
-    #
-    # # 计算残差
-    # residuals = y_pred - y_test
-    #
-    # # 绘制残差的直方图
-    # plt.figure(figsize=(8, 6))
-    # plt.hist(residuals, bins=30, edgecolor='k', alpha=0.7)
-    # plt.title('DeepMethy')
-    # plt.xlabel('Residual')
-    # plt.ylabel('Frequency')
-    # plt.savefig('Residual analysis DeepMethy.png')
-    # plt.show()
-
-    # 如果要对比消融前后的残差，假设有消融模型的预测值 y_pred_ablated
-    # y_pred_ablated = ablated_model.predict(X_test)
-    # residuals_ablated = y_pred_ablated - y_test
-    #
-    # # 绘制对比图
-    # plt.figure(figsize=(8, 6))
-    # plt.hist(residuals, bins=30, alpha=0.5, label='Original', color='blue', edgecolor='k')
-    # plt.hist(residuals_ablated, bins=30, alpha=0.5, label='Ablated', color='red', edgecolor='k')
-    # plt.title('Residuals Before and After Ablation')
-    # plt.xlabel('Residual')
-    # plt.ylabel('Frequency')
-    # plt.legend()
-    # plt.show()
-
-    # X_all = np.concatenate([X_BLtest1, X_BLtest2, X_BLtest3, X_PSSMtest1, X_PSSMtest2, X_PSSMtest3], axis=1)
-    #
-
-    # # 进行 PCA 降维并可视化
-    # pca = PCA(n_components=2)
-    # X_pca = pca.fit_transform(X_all)
-    #
-    # plt.figure(figsize=(8, 6))
-    # plt.scatter(X_pca[:, 0], X_pca[:, 1], c=true_label, cmap='viridis', edgecolor='k', s=50)
-    # plt.title("PCA Visualization")
-    # plt.xlabel("PCA Component 1")
-    # plt.ylabel("PCA Component 2")
-    # plt.colorbar(label='Classes')
-    # plt.show()
-
 
     # 从代码中获取预测标签和真实标签
     # 假设 pred_label 和 true_label 已经在上述代码中计算出
@@ -1064,19 +897,14 @@ def predict_for_deepmeths(sites,coding,
     f1 = f1_score(true_label, pred_label, average='weighted')
     print("F1 Score:", f1)
 
-
     TP=cm[0][0]
     FN=cm[0][1]
     FP=cm[1][0]
     TN=cm[1][1]
 
-
-
     #计算MCC
     MCC=(TP*TN-FN*FP)/math.sqrt((TP+FN)*(TP+FP)*(TN+FN)*(TN+FP))
     print("MCC score is:",MCC)
-
-
 
     # plt.ioff()
     from sklearn.metrics import roc_curve, auc
@@ -1086,32 +914,7 @@ def predict_for_deepmeths(sites,coding,
     #
     results=results_R
     results=results.astype(float)
-    # thresholds = np.linspace(0, 1, 10000)  # 生成 0 到 1 之间的 100 个阈值
-    # fprs = []
-    # tprs = []
-    # precisions = []
-    # recalls = []
-    #
-    # for thresh in thresholds:
-    #     # 根据当前阈值生成二值化的预测结果
-    #     y_pred = (results >= thresh).astype(int)
-    #
-    #     # 计算 FPR, TPR, Precision, Recall
-    #     fp = np.sum((y_pred == 1) & (true_label == 0))
-    #     tp = np.sum((y_pred == 1) & (true_label == 1))
-    #     fn = np.sum((y_pred == 0) & (true_label == 1))
-    #     tn = np.sum((y_pred == 0) & (true_label == 0))
-    #
-    #     fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
-    #     tpr = tp / (tp + fn) if (tp + fn) > 0 else 0
-    #
-    #     precision = precision_score(true_label, results, zero_division=0)
-    #     recall = recall_score(true_label, results, zero_division=0)
-    #
-    #     fprs.append(fpr)
-    #     tprs.append(tpr)
-    #     precisions.append(precision)
-    #     recalls.append(recall)
+
     fprs, tprs, thresholds = roc_curve(true_label, results)
     Precision, Recall, thresholds  = precision_recall_curve(true_label,results)
     #
