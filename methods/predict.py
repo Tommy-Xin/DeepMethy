@@ -1,30 +1,24 @@
 import pandas as pd
 import numpy as np
 import os
-from keras.src.layers import Dense, Activation, Flatten, Dropout, Reshape,Input,Lambda,LSTM, Bidirectional, PReLU
+import csv,math
+import tensorflow as tf
+import keras.src.backend as K
+from keras.src.layers import Dense, Activation, Flatten, Dropout, Reshape,Input,Lambda,LSTM, Bidirectional, PReLU,multiply,Permute
 from keras.src.layers import Conv1D, Conv2D, MaxPooling2D, GlobalAveragePooling1D, GlobalMaxPooling2D, AveragePooling1D
+from keras.src.layers import MultiHeadAttention, LayerNormalization, Add, BatchNormalization
+from keras.src.layers import Dense, concatenate, Layer
 from keras.src.models import Sequential, Model
 from keras.src.utils import to_categorical
 from keras.src.optimizers import Adam, SGD
-from keras.src.layers import BatchNormalization
 from keras.src.regularizers import L2
-import keras.src.backend as K
-from sklearn.utils.class_weight import compute_class_weight
-import tensorflow as tf
-from keras.src.layers import MultiHeadAttention, LayerNormalization, Add
-from keras.src.layers import concatenate
-from keras.src.layers import Dense, concatenate, Layer
 from keras.src.activations import softmax
 from keras.src.legacy.backend import batch_dot,sqrt,cast,int_shape
-from keras.src.layers import Dense,Reshape,multiply,Permute
-from keras.src.legacy.backend import int_shape
 from keras.src.legacy import backend as K
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-import csv,math
-from keras.src.layers import MultiHeadAttention, LayerNormalization
+from sklearn.metrics import confusion_matrix,accuracy_score, precision_score, recall_score, f1_score
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+from sklearn.utils.class_weight import compute_class_weight
 
 def transformer_block(x, nb_filter, num_heads=4, ff_dim=128, rate=0.2):
     attn_output = MultiHeadAttention(num_heads=num_heads, key_dim=nb_filter)(x, x)
