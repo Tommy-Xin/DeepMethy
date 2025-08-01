@@ -70,10 +70,10 @@ This project provides a deep neural network framework for the prediction of argi
 🧠 Requirements
 
 Ensure the following packages are installed before running the code:
-
-keras==2.0.0
-numpy>=1.8.0
-tensorflow (backend)
+=========
+	keras==2.0.0
+	numpy>=1.8.0
+	tensorflow (backend)
 
 
 ⸻
@@ -85,14 +85,11 @@ The input data should be stored in:
 /dataset/test_file.csv
 
 Data Format
-	•	For Prediction: The CSV file should contain the following columns:
 
-position, sequence
+	•	For Prediction: The CSV file should contain the following columns: position, sequence
 
 
-	•	For Training: The CSV file should contain:
-
-label, position, sequence
+	•	For Training: The CSV file should contain: label, position, sequence
 
 	•	label = 1 for methylated sites
 	•	label = 0 for non-methylated sites
@@ -104,14 +101,11 @@ Missing residues should be padded with "0" for sequences shorter than the requir
 🔍 Prediction
 
 To perform predictions on your test dataset:
-	1.	Prepare a CSV file with:
 
-position, sequence
+	1.	Prepare a CSV file with: position, sequence
 
 
-	2.	Run:
-
-python predict.py
+	2.	Run: python predict.py
 
 
 
@@ -125,6 +119,7 @@ The output will be a .txt file with prediction scores:
 🔧 Customization
 
 You can modify parameters in predict.py under the main() function to adjust:
+
 	•	Input file path
 	•	Output file name
 	•	Threshold or model settings
@@ -134,14 +129,11 @@ You can modify parameters in predict.py under the main() function to adjust:
 🏋️‍♂️ Training with Your Own Data
 
 To train the DeepMethy model from scratch:
-	1.	Prepare a CSV file with:
 
-label, position, sequence
+	1.	Prepare a CSV file with: label, position, sequence
 
 
-	2.	Run:
-
-python train.py
+	2.	Run: python train.py
 
 
 
@@ -150,6 +142,7 @@ You can fine-tune hyperparameters and model architecture in train.py.
 ⸻
 
 🧬 Model Architecture
+
 	•	Evolutionary Features:
 	•	BLOSUM62 Matrix
 	•	PSSM Matrix
@@ -167,17 +160,17 @@ The complete structure is implemented in train.py under the /methods/ directory.
 
 📂 Project Structure
 
-DeepMethy/
-│
-├── dataset/
-│   └── test_file.csv
-│
-├── methods/
-│   ├── train.py
-│   └── predict.py
-│
-├── README.md
-└── requirements.txt (optional)
+	DeepMethy/
+	│
+	├── dataset/
+	│   └── test_file.csv
+	│
+	├── methods/
+	│   ├── train.py
+	│   └── predict.py
+	│
+	├── README.md
+	└── requirements.txt (optional)
 
 
 ⸻
