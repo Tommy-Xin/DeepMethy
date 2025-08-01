@@ -3,14 +3,14 @@ DeepMethy
 =========
 DeepMethy: Prediction of Protein Methylation Sites with Deep Learning
 
-#Developer: XinCheng  from  Data Science and Big Data Technology, College of Software, Jilin University 
+<!--Developer: XinCheng  from  Data Science and Big Data Technology, College of Software, Jilin University-->
 
 Requirement
 =========
     keras==2.0.0
     numpy>=1.8.0
     backend==tensorflow
-
+    
 Related data information need to first load
 =========
 The related data is stored in '/dataset/test_file.csv'.
