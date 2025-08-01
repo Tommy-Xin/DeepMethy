@@ -45,9 +45,9 @@ If you are interested in adding more function to the code, welcome to show your 
 Project Structure
 ==============
 
-The methods folder contains train_BP(length-concat).py, predict_BP(length-concat).py.
+The methods folder contains train.py, predict.py.
 
-The detailed model structure is shown in the train_BP(length-concat).py
+The detailed model structure is shown in the train.py
 
 
 
