@@ -3,7 +3,7 @@ DeepMethy
 =========
 DeepMethy: Prediction of Protein Methylation Sites with Deep Learning
 
-Developer: XinCheng  from  Data Science and Big Data Technology, College of Software, Jilin University 
+#Developer: XinCheng  from  Data Science and Big Data Technology, College of Software, Jilin University 
 
 Requirement
 =========
